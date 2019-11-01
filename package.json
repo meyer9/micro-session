@@ -1,0 +1,60 @@
+{
+  "name": "micro-session",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "scripts": {
+    "test": "jest",
+    "prepare": "npm run build",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meyer9/micro-session.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/meyer9/micro-session/issues"
+  },
+  "homepage": "https://github.com/meyer9/micro-session#readme",
+  "devDependencies": {
+    "@types/cookie": "^0.3.3",
+    "@types/cookie-signature": "^1.0.3",
+    "@types/express-session": "^1.15.15",
+    "@types/jest": "^24.0.21",
+    "@types/micro": "^7.3.3",
+    "@types/node": "^12.12.3",
+    "@types/request-promise": "^4.1.44",
+    "@types/test-listen": "^1.1.0",
+    "@types/uid-safe": "^2.1.2",
+    "jest": "^24.9.0",
+    "micro": "^9.3.4",
+    "request-promise": "^4.2.4",
+    "test-listen": "^1.1.0",
+    "ts-jest": "^24.1.0",
+    "typescript": "^3.6.4"
+  },
+  "files": [
+    "lib"
+  ],
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "testRegex": "^.+\\.spec\\.ts$"
+  },
+  "dependencies": {
+    "@types/on-headers": "^1.0.0",
+    "cookie": "^0.4.0",
+    "cookie-signature": "^1.1.0",
+    "on-headers": "^1.0.2",
+    "uid-safe": "^2.1.5"
+  }
+}
