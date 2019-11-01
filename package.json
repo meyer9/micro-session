@@ -1,7 +1,7 @@
 {
   "name": "micro-session",
   "version": "1.0.0",
-  "description": "",
+  "description": "Session manager for micro",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "scripts": {
@@ -13,9 +13,9 @@
     "type": "git",
     "url": "git+https://github.com/meyer9/micro-session.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["micro", "session", "express"],
+  "author": "Julian Meyer <julianmeyer2000@gmail.com>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/meyer9/micro-session/issues"
   },
@@ -30,6 +30,7 @@
     "@types/request-promise": "^4.1.44",
     "@types/test-listen": "^1.1.0",
     "@types/uid-safe": "^2.1.2",
+    "@types/on-headers": "^1.0.0",
     "jest": "^24.9.0",
     "micro": "^9.3.4",
     "request-promise": "^4.2.4",
@@ -51,7 +52,6 @@
     "testRegex": "^.+\\.spec\\.ts$"
   },
   "dependencies": {
-    "@types/on-headers": "^1.0.0",
     "cookie": "^0.4.0",
     "cookie-signature": "^1.1.0",
     "on-headers": "^1.0.2",

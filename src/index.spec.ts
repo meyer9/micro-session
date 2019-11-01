@@ -1,12 +1,12 @@
 import micro from 'micro'
-import session, { MemoryStore } from '.';
+import { Session, MemoryStore } from '.';
 import listen from 'test-listen'
 import request from 'request-promise'
 
 describe("session()", () => {
   it("should work", async () => {
     const store = new MemoryStore()
-    const getSession = session({
+    const getSession = Session({
       store,
       secret: "test",
     })

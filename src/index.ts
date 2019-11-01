@@ -101,7 +101,7 @@ function hash(sess: any): string {
     .digest('hex')
 }
 
-class Session implements Express.Session {
+class SessionData implements Express.Session {
   id: string
   req: any
   store: Store
@@ -182,7 +182,7 @@ export class MemoryStore extends EventEmitter implements Store {
     })
   }
 
-  load(id: string, cb: (err?: any, session?: Session) => void) {
+  load(id: string, cb: (err?: any, session?: SessionData) => void) {
     this.get(id, (err, session) => {
       if (err) return cb(err)
       if (!session) return cb()
@@ -195,7 +195,7 @@ export class MemoryStore extends EventEmitter implements Store {
     })
   }
 
-  createSession(req: any, session: any): Session {
+  createSession(req: any, session: any): SessionData {
     let expires = session.cookie && session.cookie.expires
     let originalMaxAge = session.cookie && session.cookie.originalMaxAge
 
@@ -207,7 +207,7 @@ export class MemoryStore extends EventEmitter implements Store {
 
     session.cookie.originalMaxAge = originalMaxAge
 
-    req.session = new Session({
+    req.session = new SessionData({
       sessionStore: this,
       sessionID: session.id
     }, session)
@@ -344,7 +344,7 @@ function getcookie(req: IncomingMessage, name: string, secrets: string[]) {
 
 interface ReqAndSessionInfo extends IncomingMessage {
   sessionID: string
-  session: Session
+  session: SessionData
   sessionStore: Store
 }
 
@@ -352,7 +352,7 @@ interface StoreAndGenerate extends Store {
   generate: (req: ReqAndSessionInfo) => void
 }
 
-export default function session(options: SessionOptions): (req: IncomingMessage, res: ServerResponse) => Promise<Session> {
+export function Session(options: SessionOptions): (req: IncomingMessage, res: ServerResponse) => Promise<SessionData> {
   let opts: SessionOptions = options || {}
 
   let generateId = opts.genid || generateSessionId
@@ -404,13 +404,13 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
   (store as StoreAndGenerate).generate = function (req: ReqAndSessionInfo) {
     req.sessionID = generateId(req);
     req.sessionStore = store
-    req.session = new Session(req, {});
+    req.session = new SessionData(req, {});
     req.session.cookie = new Cookie(cookieOptions);
   };
 
   var storeImplementsTouch = typeof store.touch === 'function'
 
-  return (req: IncomingMessage, res: ServerResponse): Promise<Session> => {
+  return (req: IncomingMessage, res: ServerResponse): Promise<SessionData> => {
     return new Promise((resolve, reject) => {
       if (!storeReady) {
         console.warn("store disconnected")
@@ -427,19 +427,19 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
       var originalId: string
       var originalHash: string
       let savedHash: string
-      let session: Session | undefined = undefined
+      let session: SessionData | undefined = undefined
       let touched: boolean = false
 
-      function isModified(session: Session) {
+      function isModified(session: SessionData) {
         return originalId !== session.id || originalHash !== hash(session);
       }
 
       // check if session has been saved
-      function isSaved(sess: Session) {
+      function isSaved(sess: SessionData) {
         return originalId === sess.id && savedHash === hash(session);
       }
 
-      function shouldSetCookie(sessionID?: string | true | undefined, session?: Session) {
+      function shouldSetCookie(sessionID?: string | true | undefined, session?: SessionData) {
         // cannot set cookie without a session ID
         if (typeof sessionID !== 'string' || !session) {
           return false;
@@ -451,7 +451,7 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
       }
 
       // determine if session should be saved to store
-      function shouldSave(id?: string, session?: Session) {
+      function shouldSave(id?: string, session?: SessionData) {
         // cannot set cookie without a session ID
         if (typeof id !== 'string' || !session) {
           return false;
@@ -463,7 +463,7 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
       }
 
       // determine if session should be touched
-      function shouldTouch(id?: string, session?: Session) {
+      function shouldTouch(id?: string, session?: SessionData) {
         // cannot set cookie without a session ID
         if (typeof id !== 'string') {
           return false;
@@ -593,11 +593,11 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
         originalHash = hash(fakeReq.session);
         session = fakeReq.session
         cookieId = fakeReq.sessionID
-        wrapmethods(session as Session);
+        wrapmethods(session as SessionData);
       }
 
       // inflate the session
-      function inflate (req: any, sess: Session) {
+      function inflate (req: any, sess: SessionData) {
         store.createSession(req as any, sess)
         originalId = req.sessionID
         originalHash = hash(sess)
@@ -612,18 +612,18 @@ export default function session(options: SessionOptions): (req: IncomingMessage,
       }
 
       // wrap session methods
-      function wrapmethods(sess: Session) {
+      function wrapmethods(sess: SessionData) {
         var _reload = sess.reload
         var _save = sess.save
 
-        function reload(this: Session, callback: Function) {
+        function reload(this: SessionData, callback: Function) {
           _reload.call(this, function () {
-            wrapmethods(session as Session)
+            wrapmethods(session as SessionData)
             callback(arguments)
           })
         }
 
-        function save(this: Session, cb?: (err?: any) => void) {
+        function save(this: SessionData, cb?: (err?: any) => void) {
           savedHash = hash(this);
           _save.apply(this, [cb]);
         }

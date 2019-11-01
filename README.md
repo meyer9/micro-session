@@ -13,13 +13,15 @@ $ yarn add micro-session
 ## Example Usage
 
 ```javascript
+const { Session, MemoryStore } = require('micro-session')
+
 const store = new MemoryStore()
-const getSession = session({
+const getSession = Session({
   store,
-  secret: "test",
+  secret: 'keyboard cat'
 })
 
-micro(async (req, res) => {
+module.exports = async (req, res) => {
   let session = await getSession(req, res)
   if (!session.test) {
     session.test = 1
@@ -30,7 +32,7 @@ micro(async (req, res) => {
   return {
     t: session.test
   }
-})
+}
 ```
 
 Note that sessions are automatically stored if needed after `res.end` is called. All session stores that support `express-session` should also support `micro-session`.
