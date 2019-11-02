@@ -1,6 +1,6 @@
 {
   "name": "micro-session",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Session manager for micro",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -13,7 +13,11 @@
     "type": "git",
     "url": "git+https://github.com/meyer9/micro-session.git"
   },
-  "keywords": ["micro", "session", "express"],
+  "keywords": [
+    "micro",
+    "session",
+    "express"
+  ],
   "author": "Julian Meyer <julianmeyer2000@gmail.com>",
   "license": "MIT",
   "bugs": {
@@ -21,22 +25,24 @@
   },
   "homepage": "https://github.com/meyer9/micro-session#readme",
   "devDependencies": {
+    "@types/connect-mongo": "^3.0.0",
     "@types/cookie": "^0.3.3",
     "@types/cookie-signature": "^1.0.3",
     "@types/express-session": "^1.15.15",
     "@types/jest": "^24.0.21",
     "@types/micro": "^7.3.3",
     "@types/node": "^12.12.3",
+    "@types/on-headers": "^1.0.0",
     "@types/request-promise": "^4.1.44",
     "@types/test-listen": "^1.1.0",
     "@types/uid-safe": "^2.1.2",
-    "@types/on-headers": "^1.0.0",
     "jest": "^24.9.0",
     "micro": "^9.3.4",
     "request-promise": "^4.2.4",
     "test-listen": "^1.1.0",
     "ts-jest": "^24.1.0",
-    "typescript": "^3.6.4"
+    "typescript": "^3.6.4",
+    "connect-mongo": "^3.1.2"
   },
   "files": [
     "lib"

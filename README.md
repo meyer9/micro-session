@@ -13,11 +13,10 @@ $ yarn add micro-session
 ## Example Usage
 
 ```javascript
-const { Session, MemoryStore } = require('micro-session')
+const session, { MemoryStore } = require('micro-session')
 
-const store = new MemoryStore()
-const getSession = Session({
-  store,
+const getSession = session({
+  store: new MemoryStore(),
   secret: 'keyboard cat'
 })
 

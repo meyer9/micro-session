@@ -2,7 +2,7 @@ import { sync as uid } from 'uid-safe'
 
 import { IncomingMessage, ServerResponse } from 'http'
 import { EventEmitter } from 'events'
-import { Store } from 'express-session';
+import { Store as ExpressStore } from 'express-session';
 import cookie, { CookieSerializeOptions } from 'cookie'
 import url from 'url';
 import onHeaders from 'on-headers'
@@ -15,10 +15,10 @@ function generateSessionId(): string {
 }
 
 interface SessionOptions {
-  genid?: (req?: IncomingMessage) => string
+  genid?: any
   name?: string
   key?: string
-  store?: Store
+  store?: MicroStore
   resave?: boolean
   rolling?: boolean
   saveUninitialized?: boolean
@@ -27,7 +27,7 @@ interface SessionOptions {
   cookie?: Express.SessionCookieData
 }
 
-class Cookie implements Express.SessionCookie {
+class MicroCookie implements Express.SessionCookie {
   _expires: Date | boolean = false
   originalMaxAge: number
   secure: boolean = false
@@ -87,7 +87,7 @@ function hash(sess: any): string {
   // serialize
   var str = JSON.stringify(sess, function (key, val) {
     // ignore sess.cookie property
-    if (key === 'cookie') {
+    if (key === 'cookie' || key == 'store') {
       return
     }
 
@@ -101,11 +101,11 @@ function hash(sess: any): string {
     .digest('hex')
 }
 
-class SessionData implements Express.Session {
+class MicroSession implements Express.Session {
   id: string
   req: any
-  store: Store
-  cookie: Cookie
+  store: MicroStore
+  cookie: MicroCookie
   [key: string]: any
 
   constructor(req: any, sessionData: any) {
@@ -139,8 +139,19 @@ class SessionData implements Express.Session {
     return this
   }
 
+  private data(): { [key: string]: any } {
+    let out: { [key: string]: any } = {}
+    for (var prop in this) {
+      if (prop === 'cookie' || prop === 'store') {
+        continue
+      }
+      out[prop] = this[prop]
+    }
+    return out
+  }
+
   save(cb?: (err?: any) => void): this {
-    this.store.set(this.id, this, cb || function() {})
+    this.store.set(this.id, this.data(), cb || function() {})
     return this
   }
 
@@ -165,14 +176,17 @@ class SessionData implements Express.Session {
   }
 }
 
-export class MemoryStore extends EventEmitter implements Store {
-  private sessions: { [id: string]: string } = {}
-
-  generate?: (req: IncomingMessage) => void
-
+abstract class MicroStore extends EventEmitter {
   constructor() {
     super()
   }
+
+  public abstract destroy(id: string, cb?: (err?: any) => void): void;
+  public abstract get(id: string, cb: (err?: any, session?: any) => void): void;
+  public abstract set(id: string, session: any, cb?: (err?: any) => void): void;
+  public abstract touch(id: string, session: any, cb?: (err?: any) => void): void;
+
+  generate?: (req: ReqAndSessionInfo) => void
 
   regenerate(req: any, cb?: (err?: any) => void) {
     let id = req.sessionID
@@ -182,10 +196,10 @@ export class MemoryStore extends EventEmitter implements Store {
     })
   }
 
-  load(id: string, cb: (err?: any, session?: SessionData) => void) {
+  load(id: string, cb: (err: any, session?: Express.SessionData | null) => any) {
     this.get(id, (err, session) => {
       if (err) return cb(err)
-      if (!session) return cb()
+      if (!session) return cb(null)
       let req = {
         sessionID: id,
         sessionStore: this
@@ -195,11 +209,11 @@ export class MemoryStore extends EventEmitter implements Store {
     })
   }
 
-  createSession(req: any, session: any): SessionData {
+  createSession(req: any, session: any) {
     let expires = session.cookie && session.cookie.expires
     let originalMaxAge = session.cookie && session.cookie.originalMaxAge
 
-    session.cookie = new Cookie(session.cookie)
+    session.cookie = new MicroCookie(session.cookie)
 
     if (typeof expires == 'string') {
       session.cookie.expires = new Date(expires)
@@ -207,12 +221,21 @@ export class MemoryStore extends EventEmitter implements Store {
 
     session.cookie.originalMaxAge = originalMaxAge
 
-    req.session = new SessionData({
+    req.session = new MicroSession({
       sessionStore: this,
       sessionID: session.id
     }, session)
 
     return req.session
+  }
+}
+
+class MicroMemoryStore extends MicroStore implements ExpressStore {
+  private sessions: { [id: string]: string } = {}
+
+
+  constructor() {
+    super()
   }
 
   all(cb: (err?: any, sessions?: { [id: string]: any }) => void) {
@@ -344,22 +367,18 @@ function getcookie(req: IncomingMessage, name: string, secrets: string[]) {
 
 interface ReqAndSessionInfo extends IncomingMessage {
   sessionID: string
-  session: SessionData
-  sessionStore: Store
+  session: MicroSession
+  sessionStore: MicroStore
 }
 
-interface StoreAndGenerate extends Store {
-  generate: (req: ReqAndSessionInfo) => void
-}
-
-export function Session(options: SessionOptions): (req: IncomingMessage, res: ServerResponse) => Promise<SessionData> {
-  let opts: SessionOptions = options || {}
+function SessionManager(options?: SessionOptions): (req: IncomingMessage, res: ServerResponse) => Promise<MicroSession> {
+  let opts: SessionOptions = options || {} as SessionOptions
 
   let generateId = opts.genid || generateSessionId
 
   let name = opts.name || opts.key || 'micro.sid'
 
-  let store = opts.store || new MemoryStore()
+  let store = opts.store || new MicroMemoryStore()
 
   let resaveSession = opts.resave
 
@@ -392,28 +411,27 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
     throw new TypeError('session requires options.secret')
   }
 
-  // if (process.env.NODE_ENV && opts.store instanceof MemoryStore) {
-  //   console.warn("MemoryStore should not be used in production")
-  // }
+  if (process.env.NODE_ENV === 'production' && opts.store instanceof MicroMemoryStore) {
+    console.warn("MemoryStore should not be used in production")
+  }
 
   let storeReady = true;
 
   store.on('disconnect', () => storeReady = false)
   store.on('connect', () => storeReady = false);
 
-  (store as StoreAndGenerate).generate = function (req: ReqAndSessionInfo) {
+  store.generate = function (req: ReqAndSessionInfo) {
     req.sessionID = generateId(req);
     req.sessionStore = store
-    req.session = new SessionData(req, {});
-    req.session.cookie = new Cookie(cookieOptions);
+    req.session = new MicroSession(req, {});
+    req.session.cookie = new MicroCookie(cookieOptions);
   };
 
   var storeImplementsTouch = typeof store.touch === 'function'
 
-  return (req: IncomingMessage, res: ServerResponse): Promise<SessionData> => {
+  return (req: IncomingMessage, res: ServerResponse): Promise<MicroSession> => {
     return new Promise((resolve, reject) => {
       if (!storeReady) {
-        console.warn("store disconnected")
         resolve()
         return
       }
@@ -427,19 +445,19 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
       var originalId: string
       var originalHash: string
       let savedHash: string
-      let session: SessionData | undefined = undefined
+      let session: MicroSession | undefined = undefined
       let touched: boolean = false
 
-      function isModified(session: SessionData) {
+      function isModified(session: MicroSession) {
         return originalId !== session.id || originalHash !== hash(session);
       }
 
       // check if session has been saved
-      function isSaved(sess: SessionData) {
+      function isSaved(sess: MicroSession) {
         return originalId === sess.id && savedHash === hash(session);
       }
 
-      function shouldSetCookie(sessionID?: string | true | undefined, session?: SessionData) {
+      function shouldSetCookie(sessionID?: string | true | undefined, session?: MicroSession) {
         // cannot set cookie without a session ID
         if (typeof sessionID !== 'string' || !session) {
           return false;
@@ -451,7 +469,7 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
       }
 
       // determine if session should be saved to store
-      function shouldSave(id?: string, session?: SessionData) {
+      function shouldSave(id?: string, session?: MicroSession) {
         // cannot set cookie without a session ID
         if (typeof id !== 'string' || !session) {
           return false;
@@ -463,7 +481,7 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
       }
 
       // determine if session should be touched
-      function shouldTouch(id?: string, session?: SessionData) {
+      function shouldTouch(id?: string, session?: MicroSession) {
         // cannot set cookie without a session ID
         if (typeof id !== 'string') {
           return false;
@@ -560,6 +578,7 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
             session.save(function onsave(err) {
               if (err) {
                 setImmediate(reject, err)
+                return
               }
 
               writeend();
@@ -588,16 +607,16 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
         let fakeReq: any = req;
         fakeReq.sessionID = cookieId;
         fakeReq.session = session;
-        (store as StoreAndGenerate).generate(fakeReq);
+        store.generate && store.generate(fakeReq);
         originalId = fakeReq.sessionID;
         originalHash = hash(fakeReq.session);
         session = fakeReq.session
         cookieId = fakeReq.sessionID
-        wrapmethods(session as SessionData);
+        wrapmethods(session as MicroSession);
       }
 
       // inflate the session
-      function inflate (req: any, sess: SessionData) {
+      function inflate (req: any, sess: MicroSession) {
         store.createSession(req as any, sess)
         originalId = req.sessionID
         originalHash = hash(sess)
@@ -612,18 +631,18 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
       }
 
       // wrap session methods
-      function wrapmethods(sess: SessionData) {
+      function wrapmethods(sess: MicroSession) {
         var _reload = sess.reload
         var _save = sess.save
 
-        function reload(this: SessionData, callback: Function) {
+        function reload(this: MicroSession, callback: Function) {
           _reload.call(this, function () {
-            wrapmethods(session as SessionData)
+            wrapmethods(session as MicroSession)
             callback(arguments)
           })
         }
 
-        function save(this: SessionData, cb?: (err?: any) => void) {
+        function save(this: MicroSession, cb?: (err?: any) => void) {
           savedHash = hash(this);
           _save.apply(this, [cb]);
         }
@@ -674,3 +693,12 @@ export function Session(options: SessionOptions): (req: IncomingMessage, res: Se
     })
   }
 }
+
+namespace SessionManager {
+  export var Cookie: typeof MicroCookie = MicroCookie
+  export var MemoryStore: typeof MicroMemoryStore = MicroMemoryStore
+  export var Store: typeof MicroStore = MicroStore
+  export var Session: typeof MicroSession = MicroSession
+}
+
+export = SessionManager

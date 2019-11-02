@@ -1,12 +1,13 @@
 import micro from 'micro'
-import { Session, MemoryStore } from '.';
+import SessionManager, { MemoryStore } from '.';
 import listen from 'test-listen'
 import request from 'request-promise'
+import MongoStore from 'connect-mongo'
 
 describe("session()", () => {
   it("should work", async () => {
     const store = new MemoryStore()
-    const getSession = Session({
+    const getSession = SessionManager({
       store,
       secret: "test",
     })
