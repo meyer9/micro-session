@@ -1,6 +1,6 @@
 {
   "name": "micro-session",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Session manager for micro",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
